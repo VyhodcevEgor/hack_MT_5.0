@@ -1,0 +1,11 @@
+.top-bar {
+  width: 100vw;
+  box-shadow: 0px 4px 10px var(--shadow-color);
+  background: var(--primary-background);
+  color: var(--primary-font-color);
+  position: relative;
+  z-index: 9999;
+  & .top-bar-header {
+    line-height: 1rem;
+  }
+}
