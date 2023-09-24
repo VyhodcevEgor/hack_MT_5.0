@@ -1,0 +1,15 @@
+.map {
+  width: 100vw;
+  height: 100vh;
+}
+
+.ymaps-2-1-79-zoom {
+  top: 30vh;
+  left: 85vw;
+}
+
+.ymaps-2-1-79-balloon, .ymaps-2-1-79-copyright, .ymaps-2-1-79-map-copyrights-promo,
+.ymaps-2-1-79-controls__bottom, .ymaps-2-1-79-controls__toolbar_right, .ymaps-2-1-79-controls__toolbar_left,
+.ymaps-2-1-79-zoom{
+  display: none !important;
+}

@@ -1,0 +1,17 @@
+body {
+  place-items: normal;
+  display: block;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+#app {
+  margin: 0px;
+  padding: 0px;
+}
+
+@import '@/assets/styles/layout/top-bar.scss';
+@import '@/assets/styles/layout/map.scss';
+@import '@/assets/styles/layout/bottom-bar.scss';
+@import 'primeflex/primeflex.scss';
+@import 'primeicons/primeicons.css';
+@import 'material-icons/iconfont/material-icons.css';
