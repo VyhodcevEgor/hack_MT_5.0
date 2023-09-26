@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, json
 from Database import database_requests
 
 app = Flask(__name__)
@@ -9,6 +9,7 @@ def get_extended_info():
     if not request.json or 'id' not in request.json:
         abort(400)
 
+    args = dict(request.args)
     bank_info = []
     query_result = database_requests.get_extended_info(request.json['id'])
     if query_result:
@@ -23,7 +24,12 @@ def get_extended_info():
             }
         )
 
-        return jsonify({'response': {'bank_info': bank_info}})
+        response_to_send = app.response_class(
+            response=json.dumps(bank_info),
+            status=200,
+            mimetype='application/json'
+        )
+        return response_to_send
     else:
         abort(400)
 
