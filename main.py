@@ -4,14 +4,14 @@ from Database import database_requests
 app = Flask(__name__)
 
 
-@app.route('/hack/API/v1.0/get_extended_info', methods=['POST'])
+@app.route('/hack/API/v1.0/get_extended_info', methods=['GET'])
 def get_extended_info():
-    if not request.json or 'id' not in request.json:
+    args = dict(request.args)
+    if not args or 'id' not in args.get('id'):
         abort(400)
 
-    args = dict(request.args)
     bank_info = []
-    query_result = database_requests.get_extended_info(request.json['id'])
+    query_result = database_requests.get_extended_info(args.get('id'))
     if query_result:
         bank_info.append(
             {
