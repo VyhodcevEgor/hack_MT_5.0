@@ -1,16 +1,17 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, json
 from Database import database_requests
 
 app = Flask(__name__)
 
 
-@app.route('/hack/API/v1.0/get_extended_info', methods=['POST'])
+@app.route('/hack/API/v1.0/get_extended_info', methods=['GET'])
 def get_extended_info():
-    if not request.json or 'id' not in request.json:
+    args = dict(request.args)
+    if not args or 'id' not in args.get('id'):
         abort(400)
 
     bank_info = []
-    query_result = database_requests.get_extended_info(request.json['id'])
+    query_result = database_requests.get_extended_info(args.get('id'))
     if query_result:
         bank_info.append(
             {
@@ -23,7 +24,12 @@ def get_extended_info():
             }
         )
 
-        return jsonify({'response': {'bank_info': bank_info}})
+        response_to_send = app.response_class(
+            response=json.dumps(bank_info),
+            status=200,
+            mimetype='application/json'
+        )
+        return response_to_send
     else:
         abort(400)
 
