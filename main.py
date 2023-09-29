@@ -7,7 +7,7 @@ app = Flask(__name__)
 @app.route('/hack/API/v1.0/get_extended_info', methods=['GET'])
 def get_extended_info():
     args = dict(request.args)
-    if not args or 'id' not in args.get('id'):
+    if not args or 'id' not in args:
         abort(400)
 
     bank_info = []
@@ -32,6 +32,29 @@ def get_extended_info():
         return response_to_send
     else:
         abort(400)
+
+
+@app.route('/hack/API/v1.0/banks_in_radius', methods=['GET'])
+def get_banks_in_radius():
+    args = dict(request.args)
+    if not args or 'currentPosition' not in args:
+        response = app.response_class(
+            response=json.dumps({'description': 'Current user position missing'}),
+            status=404,
+            mimetype='application/json'
+        )
+        return response
+    service = args.get("service")
+    loading_type = args.get("loadingType")
+    distance = args.get("distance")
+    lat, lng = map(float, args.get("currentPosition").split())
+    data = {"banks": get_banks_in_radius(lat, lng, service, loading_type, distance)}
+    response = app.response_class(
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
 
 
 if __name__ == '__main__':
