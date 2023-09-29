@@ -84,7 +84,7 @@ def insert_availabilities(day_of_week, time_from, time_to, bank_id):
 
 
 def get_banks_in_radius(lat, lng, service, loading_type, distance):
-    if distance:
+    if not distance:
         distance = 1
 
     days_of_week_russian = [
