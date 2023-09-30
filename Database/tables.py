@@ -9,7 +9,9 @@ from sqlalchemy import (
     BOOLEAN,
     DATE,
     ForeignKey,
-    DECIMAL)
+    DECIMAL,
+    DATETIME
+)
 from Database.settings import user, password, host, db_name
 
 engine = create_engine(
@@ -39,5 +41,13 @@ availabilities_table = Table('availabilities_table', metadata,
                              Column('bank_id', INTEGER(),
                                     ForeignKey('banks_table.id')),
                              )
+
+history_table = Table('history_table', metadata,
+                      Column('id', INTEGER(), primary_key=True,
+                             autoincrement=True),
+                      Column('visit_time', DATETIME()),
+                      Column('bank_id', INTEGER(),
+                             ForeignKey('banks_table.id')),
+                      )
 
 metadata.create_all(engine)
