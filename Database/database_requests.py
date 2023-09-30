@@ -13,7 +13,11 @@ from sqlalchemy import (
     insert,
 )
 from sqlalchemy.orm import sessionmaker
-from Database.tables import banks_table, availabilities_table
+from Database.tables import (
+    banks_table,
+    availabilities_table,
+    history_table
+)
 
 engine = create_engine(
     f"mysql+pymysql://{user}:{password}@{host}/{db_name}?charset=utf8mb4"
@@ -49,9 +53,17 @@ def get_extended_info(bank_id):
         banks_table.c.load_type
     ]).select_from(banks_table).where(banks_table.c.id == bank_id)
 
-    result = connection.execute(s)
+    bank_data = connection.execute(s)
 
-    return result.fetchone()
+    s = select([
+        availabilities_table.c.day_of_week,
+        availabilities_table.c.time_from,
+        availabilities_table.c.time_to,
+    ]).where(bank_id == availabilities_table.c.bank_id)
+
+    availabilities_data = connection.execute(s)
+
+    return [list(bank_data.fetchone()), list(availabilities_data.fetchall())]
 
 
 def insert_bank_info(
@@ -147,5 +159,32 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     return data_to_return
 
 
+def insert_history(bank_id):
+    history = history_table.insert().values(
+        bank_id=bank_id,
+        visit_time=datetime.datetime.now()
+    )
+    session.execute(history)
+    session.commit()
+
+
+def get_history():
+    s = select([
+        history_table.c.id,
+        history_table.c.visit_time,
+        history_table.c.bank_id,
+    ]).select_from(history_table).order_by(history_table.c.visit_time.desc())
+
+    result = connection.execute(s)
+
+    return result.fetchall()
+
+
+def delete_history(bank_id):
+    history = history_table.delete().where(history_table.c.bank_id == bank_id)
+    session.execute(history)
+    session.commit()
+
+
 #if __name__ == '__main__':
-#    get_banks_in_radius(55.7522200, 37.6155600, "Оформление ипотеки", "Средняя", 4)
+#    print(get_extended_info(4))
