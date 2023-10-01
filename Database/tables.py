@@ -50,4 +50,16 @@ history_table = Table('history_table', metadata,
                              ForeignKey('banks_table.id')),
                       )
 
+average_load_table = Table('average_load_table', metadata,
+                           Column('id', INTEGER(), primary_key=True,
+                                  autoincrement=True),
+                           Column('date', DATE()),
+                           Column('day_of_week', VARCHAR(25)),
+                           Column('time_from', TIME()),
+                           Column('time_to', TIME()),
+                           Column('average_load', INTEGER()),
+                           Column('bank_id', INTEGER(),
+                                  ForeignKey('banks_table.id')),
+                           )
+
 metadata.create_all(engine)

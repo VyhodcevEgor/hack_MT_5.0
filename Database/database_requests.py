@@ -16,7 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from Database.tables import (
     banks_table,
     availabilities_table,
-    history_table
+    history_table,
+    average_load_table
 )
 
 engine = create_engine(
@@ -82,6 +83,27 @@ def insert_bank_info(
     result_proxy = session.execute(bank)
     session.commit()
     return result_proxy.inserted_primary_key[0]
+
+
+def select_all_bank_info():
+    data_to_return = []
+    s = select([
+        banks_table.c.id
+    ]).select_from(banks_table)
+    bank_data = connection.execute(s).fetchall()
+    for data in bank_data:
+        s = select([
+            availabilities_table.c.day_of_week,
+            availabilities_table.c.time_from,
+            availabilities_table.c.time_to,
+        ]).where(data[0] == availabilities_table.c.bank_id)
+        availabilities_data = connection.execute(s).fetchall()
+        data_to_return.append({
+                "bank_id":  data[0],
+                "work_schedule": availabilities_data
+            }
+        )
+    return data_to_return
 
 
 def insert_availabilities(day_of_week, time_from, time_to, bank_id):
@@ -168,6 +190,19 @@ def insert_history(bank_id):
     session.commit()
 
 
+def insert_average_load(date, day_of_week, time_from, time_to, average_load, bank_id):
+    load = average_load_table.insert().values(
+        date=date,
+        day_of_week=day_of_week,
+        time_from=time_from,
+        time_to=time_to,
+        average_load=average_load,
+        bank_id=bank_id,
+    )
+    session.execute(load)
+    session.commit()
+
+
 def get_history():
     s = select([
         history_table.c.id,
@@ -185,6 +220,5 @@ def delete_history(bank_id):
     session.execute(history)
     session.commit()
 
-
-#if __name__ == '__main__':
+# if __name__ == '__main__':
 #    print(get_extended_info(4))
