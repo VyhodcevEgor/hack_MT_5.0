@@ -13,12 +13,18 @@ from sqlalchemy import (
     insert,
 )
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import and_, or_, not_
 from Database.tables import (
     banks_table,
     availabilities_table,
     history_table,
     average_load_table
 )
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from pprint import pprint
 
 engine = create_engine(
     f"mysql+pymysql://{user}:{password}@{host}/{db_name}?charset=utf8mb4"
@@ -26,6 +32,26 @@ engine = create_engine(
 Session = sessionmaker(bind=engine)
 session = Session()
 connection = engine.connect()
+
+model = RandomForestRegressor(n_estimators=100, random_state=0)
+
+
+def predict_time(time):
+    current_date = datetime.datetime.now() - datetime.timedelta(days=1)
+
+    date_range = [current_date - datetime.timedelta(days=i) for i in range(len(time))]
+    date_range.reverse()
+
+    data_10 = pd.DataFrame({"Дата": date_range, "Посещаемость": time})
+
+    X = np.arange(len(data_10)).reshape(-1, 1)
+    y = data_10['Посещаемость']
+
+    model.fit(X, y)
+    next_day = len(data_10)
+
+    predicted_value = model.predict([[next_day]])[0]
+    return predicted_value
 
 
 def haversine(lat1, lng1, lat2, lng2):
@@ -99,9 +125,9 @@ def select_all_bank_info():
         ]).where(data[0] == availabilities_table.c.bank_id)
         availabilities_data = connection.execute(s).fetchall()
         data_to_return.append({
-                "bank_id":  data[0],
-                "work_schedule": availabilities_data
-            }
+            "bank_id": data[0],
+            "work_schedule": availabilities_data
+        }
         )
     return data_to_return
 
@@ -220,5 +246,45 @@ def delete_history(bank_id):
     session.execute(history)
     session.commit()
 
-# if __name__ == '__main__':
-#    print(get_extended_info(4))
+
+def get_working_time(bank_id, weeks=1):
+    current_date = datetime.datetime.now()
+    last_date = current_date - datetime.timedelta(days=7 * weeks)
+    current_date = current_date.date()
+    last_date = last_date.date()
+    s = select([
+        average_load_table.c.date,
+        average_load_table.c.day_of_week,
+        average_load_table.c.time_from,
+        average_load_table.c.time_to,
+        average_load_table.c.average_load,
+    ]).where(and_(
+        average_load_table.c.bank_id == bank_id,
+        average_load_table.c.date >= last_date,
+        average_load_table.c.date < current_date,
+        or_(
+            average_load_table.c.time_from == datetime.time(10, 0),
+            average_load_table.c.time_from == datetime.time(13, 0),
+            average_load_table.c.time_from == datetime.time(16, 0),
+        )
+    ))
+    time_data = connection.execute(s).fetchall()
+    time_10 = []
+    time_13 = []
+    time_16 = []
+    for elem in time_data:
+        if elem[2] == datetime.time(10, 0):
+            time_10.append(elem[4])
+        elif elem[2] == datetime.time(13, 0):
+            time_13.append(elem[4])
+        elif elem[2] == datetime.time(16, 0):
+            time_16.append(elem[4])
+    return {
+        "10": predict_time(time_10),
+        "13": predict_time(time_13),
+        "16": predict_time(time_16)
+    }
+
+
+if __name__ == '__main__':
+    get_working_time(20)

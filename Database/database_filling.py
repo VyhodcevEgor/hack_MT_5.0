@@ -207,13 +207,14 @@ if __name__ == '__main__':
                     break
 
     bank_data = select_all_bank_info()
-    start_date = datetime.date(2023, 10, 1)
-    end_date = datetime.date(2023, 10, 15)
-    current_date = start_date
-    while current_date <= end_date:
-        for bank in bank_data:
-            bank_id = bank['bank_id']
-            schedule = bank['work_schedule']
+
+    for bank in bank_data:
+        start_date = datetime.date(2023, 10, 1)
+        end_date = datetime.date(2023, 10, 15)
+        current_date = start_date
+        bank_id = bank['bank_id']
+        schedule = bank['work_schedule']
+        while current_date <= end_date:
             for i in range(len(schedule)):
                 day_of_week = schedule[i][0]
                 time_from = schedule[i][1].hour * 60 + schedule[i][1].minute
@@ -227,5 +228,5 @@ if __name__ == '__main__':
                         load_by_time(time // 60),
                         bank_id
                     )
-        current_date += datetime.timedelta(days=1)
+                current_date += datetime.timedelta(days=1)
     #

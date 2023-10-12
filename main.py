@@ -39,6 +39,7 @@ def get_extended_info():
 
     bank_info = []
     query_result = database_requests.get_extended_info(args.get('id'))
+    predicted_time = database_requests.predict_time(args.get('id'))
     if query_result:
         bank_info.append(
             {
@@ -48,7 +49,8 @@ def get_extended_info():
                 'latitude': query_result[0][3],
                 'longitude': query_result[0][4],
                 'load_type': query_result[0][5],
-                'ext_work_hours': query_result[1]
+                'ext_work_hours': query_result[1],
+                'predicted_time': predicted_time
             }
         )
 
@@ -72,13 +74,13 @@ def get_banks_in_radius():
     loading_type = args.get("loadingType")
     distance = args.get("distance")
     lat, lng = map(float, args.get("currentPosition").split())
-    data = {"banks": get_banks_in_radius(lat, lng, service, loading_type, distance)}
+    data = {"banks": database_requests.get_banks_in_radius(lat, lng, service, loading_type, distance)}
 
     return status_200(data)
 
 
 @app.route('/hack/API/v1.0/history', methods=['GET', "POST", "DELETE"])
-def get_extended_info():
+def get_history():
     if request.method == 'GET':
         data = database_requests.get_history()
         return status_200(data)
