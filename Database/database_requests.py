@@ -1,5 +1,7 @@
 import math
 import datetime
+import random
+
 from Database.settings import user, password, host, db_name
 from sqlalchemy import (
     create_engine,
@@ -95,7 +97,8 @@ def get_extended_info(bank_id):
 
 def insert_bank_info(
         bank_name, work_hours, address, services, latitude,
-        longitude, load_type
+        longitude, load_type, rko, network, office_type,
+        sale_point_format, suo_availability, has_ramp
 ):
     bank = banks_table.insert().values(
         bank_name=bank_name,
@@ -104,7 +107,13 @@ def insert_bank_info(
         services=services,
         latitude=latitude,
         longitude=longitude,
-        load_type=load_type
+        load_type=load_type,
+        rko=rko,
+        network=network,
+        office_type=office_type,
+        sale_point_format=sale_point_format,
+        suo_availability=suo_availability,
+        has_ramp=has_ramp
     )
     result_proxy = session.execute(bank)
     session.commit()
@@ -146,6 +155,8 @@ def insert_availabilities(day_of_week, time_from, time_to, bank_id):
 def get_banks_in_radius(lat, lng, service, loading_type, distance):
     if not distance:
         distance = 1
+    else:
+        distance = int(distance)
 
     days_of_week_russian = [
         "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"
@@ -162,6 +173,13 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
         banks_table.c.latitude,
         banks_table.c.longitude,
         banks_table.c.services,
+        banks_table.c.address,
+        banks_table.c.rko,
+        banks_table.c.network,
+        banks_table.c.office_type,
+        banks_table.c.sale_point_format,
+        banks_table.c.suo_availability,
+        banks_table.c.has_ramp
     ])
 
     result = connection.execute(s)
@@ -181,29 +199,60 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             ]).where(bank[0] == availabilities_table.c.bank_id)
             result = connection.execute(s)
             work_hours = result.fetchall()
-
+            temp = list(bank)
+            temp.append([])
             for day in work_hours:
-                if day[0] == current_day_of_week:
-                    selected_banks.append(list(bank) + list(day))
+                # if day[0] == current_day_of_week:
+                temp[-1].append(list(day))
+            selected_banks.append(temp)
 
     if loading_type is not None:
         selected_banks = [bank for bank in selected_banks if loading_type in bank]
     if service is not None:
         selected_banks = [bank for bank in selected_banks if service in bank[5]]
     data_to_return = []
+    req_time = datetime.datetime.now()
     for bank in selected_banks:
+        status = "Закрыто"
+        for day in bank[13]:
+            if day[0] == current_day_of_week:
+                if day[1] <= req_time.time() <= day[2]:
+                    status = "Открыто"
+                break
         temp = {
-            "bank_id": bank[0],
-            "name": bank[1],
-            "load_type": bank[2],
-            "lat": str(float(bank[3])),
-            "lng": str(float(bank[4])),
+            "bankId": bank[0],
+            "salesPointName": bank[1],
+            "address": bank[6],
+            "salePointCode": bank[0],
+            "status": status,
+            "openHours": [],
+            "rko": bank[7],
+            "network": None,
+            "openHoursIndividual": [],
+            "officeType": bank[9],
+            "salePointFormat": bank[10],
+            "suoAvailability": bank[11],
+            "hasRamp": bank[12],
+            "latitude": str(float(bank[3])),
+            "longitude": str(float(bank[4])),
+            "metroStation": None,
+            "distance": None,
+            "kep": bool(random.randint(0, 1)),
+            "myBranch": False,
+            "loadType": bank[2],
             "services": bank[5],
-            "day": bank[6],
-            "from": bank[7].strftime("%H:%M"),
-            "to": bank[8].strftime("%H:%M"),
         }
+        for day in bank[13]:
+            work_day = {
+                'days': day[0],
+                'hours': f'{day[1].strftime("%H:%M")}-{day[2].strftime("%H:%M")}',
+                "from": f'{day[1].strftime("%H:%M")}',
+                "to": f'{day[2].strftime("%H:%M")}',
+            }
+            temp['openHours'].append(work_day)
+            temp['openHoursIndividual'].append(work_day)
         data_to_return.append(temp)
+
     return data_to_return
 
 
@@ -286,5 +335,6 @@ def get_working_time(bank_id, weeks=1):
     }
 
 
-if __name__ == '__main__':
-    get_working_time(20)
+#if __name__ == '__main__':
+#    bank_info = get_banks_in_radius(55.7522200, 37.6155600, None, None, "1")
+#    print(bank_info)

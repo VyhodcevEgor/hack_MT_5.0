@@ -105,7 +105,18 @@ if __name__ == '__main__':
         "Открытие счета", "Получение кредита", "Обмен валюты",
         "Оформление ипотеки", "Кредиит для бизнеса", "Кредитная карта", "Дебетовая карта"
     ]
+    bool_states = [True, False]
     load_type = ["Полная", "Средняя", "Малая"]
+    sale_point_formats = [
+        "Универсальный",
+        "Розничный (РБ)",
+        "Корпоративный",
+        "Микро (РБ)",
+        "Филиал",
+        "Привилегия (РБ)",
+        "Прайм (РБ)",
+    ]
+    office_types = ["Да (Зона Привилегия)", "Да (Офис Привилегия)", "Да", "Нет"]
     week = {
         0: "Дни недели",
         1: "Выходные",
@@ -157,6 +168,12 @@ if __name__ == '__main__':
                         latitude=coordinates[1],
                         longitude=coordinates[0],
                         load_type=choice(load_type),
+                        rko=choice(bool_states),
+                        network=None,
+                        office_type=choice(office_types),
+                        sale_point_format=choice(sale_point_formats),
+                        suo_availability=choice(bool_states),
+                        has_ramp=choice(bool_states)
                     )
 
                     for day in hours['Availabilities']:
@@ -203,8 +220,6 @@ if __name__ == '__main__':
                                                               bank_id)
                                     else:
                                         insert_availabilities(week[idx], "00:00", "00:00", bank_id)
-                if len(data) != 50:
-                    break
 
     bank_data = select_all_bank_info()
 

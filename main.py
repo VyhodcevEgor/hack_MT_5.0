@@ -74,9 +74,9 @@ def get_banks_in_radius():
     loading_type = args.get("loadingType")
     distance = args.get("distance")
     lat, lng = map(float, args.get("currentPosition").split())
-    data = {"banks": database_requests.get_banks_in_radius(lat, lng, service, loading_type, distance)}
+    bank_info = database_requests.get_banks_in_radius(lat, lng, service, loading_type, distance)
 
-    return status_200(data)
+    return status_200(bank_info)
 
 
 @app.route('/hack/API/v1.0/history', methods=['GET', "POST", "DELETE"])
