@@ -38,6 +38,18 @@ banks_table = Table('banks_table', metadata,
                     Column('load_type', VARCHAR(15)),
                     Column('phone', VARCHAR(20)),
                     )
+atm_table = Table('atm_table', metadata,
+                  Column('id', INTEGER(), primary_key=True,
+                         autoincrement=True),
+                  Column('name', VARCHAR(70),
+                         nullable=False),  # was unique=True
+                  Column('work_hours', VARCHAR(60)),
+                  Column('address', VARCHAR(256)),
+                  Column('has_ramp', BOOLEAN()),
+                  Column('latitude', DECIMAL(6, 4)),
+                  Column('longitude', DECIMAL(7, 4)),
+                  )
+
 availabilities_table = Table('availabilities_table', metadata,
                              Column('id', INTEGER(), primary_key=True,
                                     autoincrement=True),
@@ -47,6 +59,16 @@ availabilities_table = Table('availabilities_table', metadata,
                              Column('bank_id', INTEGER(),
                                     ForeignKey('banks_table.id')),
                              )
+
+atm_availabilities_table = Table('atm_availabilities_table', metadata,
+                                 Column('id', INTEGER(), primary_key=True,
+                                        autoincrement=True),
+                                 Column('day_of_week', VARCHAR(25)),
+                                 Column('time_from', TIME()),
+                                 Column('time_to', TIME()),
+                                 Column('atm_id', INTEGER(),
+                                        ForeignKey('atm_table.id')),
+                                 )
 
 history_table = Table('history_table', metadata,
                       Column('id', INTEGER(), primary_key=True,

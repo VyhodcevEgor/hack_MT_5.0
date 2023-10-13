@@ -20,7 +20,9 @@ from Database.tables import (
     banks_table,
     availabilities_table,
     history_table,
-    average_load_table
+    average_load_table,
+    atm_table,
+    atm_availabilities_table,
 )
 import pandas as pd
 import numpy as np
@@ -120,6 +122,23 @@ def insert_bank_info(
     return result_proxy.inserted_primary_key[0]
 
 
+def insert_atm_info(
+        name, work_hours, address, latitude,
+        longitude, has_ramp
+):
+    atm = atm_table.insert().values(
+        name=name,
+        work_hours=work_hours,
+        address=address,
+        latitude=latitude,
+        longitude=longitude,
+        has_ramp=has_ramp,
+    )
+    result_proxy = session.execute(atm)
+    session.commit()
+    return result_proxy.inserted_primary_key[0]
+
+
 def select_all_bank_info():
     data_to_return = []
     s = select([
@@ -141,15 +160,25 @@ def select_all_bank_info():
     return data_to_return
 
 
-def insert_availabilities(day_of_week, time_from, time_to, bank_id):
-    availability = availabilities_table.insert().values(
-        day_of_week=day_of_week,
-        time_from=time_from,
-        time_to=time_to,
-        bank_id=bank_id,
-    )
-    session.execute(availability)
-    session.commit()
+def insert_availabilities(day_of_week, time_from, time_to, bank_id, entity_type):
+    if entity_type == "bank":
+        availability = availabilities_table.insert().values(
+            day_of_week=day_of_week,
+            time_from=time_from,
+            time_to=time_to,
+            bank_id=bank_id,
+        )
+        session.execute(availability)
+        session.commit()
+    else:
+        availability = atm_availabilities_table.insert().values(
+            day_of_week=day_of_week,
+            time_from=time_from,
+            time_to=time_to,
+            atm_id=bank_id,
+        )
+        session.execute(availability)
+        session.commit()
 
 
 def get_banks_in_radius(lat, lng, service, loading_type, distance):
@@ -202,7 +231,6 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             temp = list(bank)
             temp.append([])
             for day in work_hours:
-                # if day[0] == current_day_of_week:
                 temp[-1].append(list(day))
             selected_banks.append(temp)
 
@@ -214,9 +242,9 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     req_time = datetime.datetime.now()
     for bank in selected_banks:
         status = "Закрыто"
-        for day in bank[13]:
+        for day in bank[-1]:
             if day[0] == current_day_of_week:
-                if day[1] <= req_time.time() <= day[2]:
+                if day[1] <= req_time.time() <= day[2] or day[1] == day[2]:
                     status = "Открыто"
                 break
         temp = {
@@ -239,10 +267,10 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             "distance": None,
             "kep": bool(random.randint(0, 1)),
             "myBranch": False,
-            "loadType": bank[2],
+            "loadType": get_working_time(bank[0]),
             "services": bank[5],
         }
-        for day in bank[13]:
+        for day in bank[-1]:
             work_day = {
                 'days': day[0],
                 'hours': f'{day[1].strftime("%H:%M")}-{day[2].strftime("%H:%M")}',
@@ -253,7 +281,69 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             temp['openHoursIndividual'].append(work_day)
         data_to_return.append(temp)
 
-    return data_to_return
+    result_to_return = {"banks": data_to_return}
+
+    s = select([
+        atm_table.c.id,
+        atm_table.c.name,
+        banks_table.c.latitude,
+        banks_table.c.longitude,
+        banks_table.c.address,
+        banks_table.c.has_ramp
+    ])
+
+    result = connection.execute(s)
+    atm_data = result.fetchall()
+
+    selected_atms = []
+
+    for atm in atm_data:
+
+        dist = haversine(lat, lng, float(atm[2]), float(atm[3]))
+
+        if dist <= distance:
+            s = select([
+                atm_availabilities_table.c.day_of_week,
+                atm_availabilities_table.c.time_from,
+                atm_availabilities_table.c.time_to,
+            ]).where(atm[0] == atm_availabilities_table.c.atm_id)
+            result = connection.execute(s)
+            work_hours = result.fetchall()
+            temp = list(atm)
+            temp.append([])
+            for day in work_hours:
+                temp[-1].append(list(day))
+            selected_atms.append(temp)
+
+    data_to_return = []
+    for atm in selected_atms:
+        status = "Закрыто"
+        for day in atm[-1]:
+            if day[0] == current_day_of_week:
+                if day[1] <= req_time.time() <= day[2] or day[1] == day[2]:
+                    status = "Открыто"
+                break
+        temp = {
+            "atmId": atm[0],
+            "salesPointName": f"Банкомат {atm[1]}",
+            "address": atm[4],
+            "status": status,
+            "openHours": [],
+            "openHoursIndividual": [],
+            "hasRamp": atm[5],
+        }
+        for day in atm[-1]:
+            work_day = {
+                'days': day[0],
+                'hours': f'{day[1].strftime("%H:%M")}-{day[2].strftime("%H:%M")}',
+                "from": f'{day[1].strftime("%H:%M")}',
+                "to": f'{day[2].strftime("%H:%M")}',
+            }
+            temp['openHours'].append(work_day)
+            temp['openHoursIndividual'].append(work_day)
+        data_to_return.append(temp)
+    result_to_return['atms'] = data_to_return
+    return result_to_return
 
 
 def insert_history(bank_id):
@@ -335,6 +425,6 @@ def get_working_time(bank_id, weeks=1):
     }
 
 
-#if __name__ == '__main__':
-#    bank_info = get_banks_in_radius(55.7522200, 37.6155600, None, None, "1")
-#    print(bank_info)
+if __name__ == '__main__':
+    bank_info = get_banks_in_radius(45.0428, 41.9734, None, None, "1")
+    pprint(bank_info)
