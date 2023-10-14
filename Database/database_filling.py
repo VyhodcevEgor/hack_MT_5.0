@@ -207,6 +207,14 @@ if __name__ == '__main__':
                 address = company_metadata.get('address')
                 name = company_metadata.get('name')
                 text_hours = hours['text']
+                if len(phones) == 0:
+                    phones = None
+                else:
+                    temp = ""
+                    for phone in phones:
+                        formatted_phone = phone.get("formatted")
+                        if formatted_phone is not None:
+                            temp += f"{formatted_phone}\n"
                 if bank['properties']['CompanyMetaData']['Categories'][0]['class'] == 'banks':
                     bank_id = insert_bank_info(
                         bank_name=name,
@@ -221,7 +229,8 @@ if __name__ == '__main__':
                         office_type=choice(office_types),
                         sale_point_format=choice(sale_point_formats),
                         suo_availability=choice(bool_states),
-                        has_ramp=choice(bool_states)
+                        has_ramp=choice(bool_states),
+                        phone=phones
                     )
                     fill_availabilities(hours['Availabilities'], bank_id, "bank")
                 else:
@@ -248,6 +257,8 @@ if __name__ == '__main__':
                 day_of_week = schedule[i][0]
                 time_from = schedule[i][1].hour * 60 + schedule[i][1].minute
                 time_to = schedule[i][2].hour * 60 + schedule[i][2].minute
+                if time_to == time_from:
+                    time_to = 23 * 60
                 for time in range(time_from, time_to, 60):
                     insert_average_load(
                         current_date,

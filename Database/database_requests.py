@@ -40,6 +40,29 @@ connection = engine.connect()
 model = RandomForestRegressor(n_estimators=100, random_state=0)
 
 
+def get_times_to_predict(bank_id, weeks, time_for_prediction):
+    current_date = datetime.datetime.now()
+    last_date = current_date - datetime.timedelta(days=7 * weeks)
+    current_date = current_date.date()
+    last_date = last_date.date()
+    s = select([
+        average_load_table.c.date,
+        average_load_table.c.day_of_week,
+        average_load_table.c.time_from,
+        average_load_table.c.time_to,
+        average_load_table.c.average_load,
+    ]).where(and_(
+        average_load_table.c.bank_id == bank_id,
+        average_load_table.c.date >= last_date,
+        average_load_table.c.date < current_date,
+        or_(
+            average_load_table.c.time_from == datetime.time(time_for_prediction, 0),
+        )
+    ))
+    query_data = connection.execute(s).fetchall()
+    return [int(elem[4]) for elem in query_data]
+
+
 def predict_time(time):
     current_date = datetime.datetime.now() - datetime.timedelta(days=1)
 
@@ -73,7 +96,6 @@ def haversine(lat1, lng1, lat2, lng2):
 
 
 def get_extended_info(bank_id):
-    print(bank_id)
     s = select([
         banks_table.c.bank_name,
         banks_table.c.services,
@@ -81,7 +103,8 @@ def get_extended_info(bank_id):
         banks_table.c.address,
         banks_table.c.latitude,
         banks_table.c.longitude,
-        banks_table.c.load_type
+        banks_table.c.load_type,
+        banks_table.c.phone,
     ]).select_from(banks_table).where(banks_table.c.id == bank_id)
 
     bank_data = connection.execute(s)
@@ -93,14 +116,39 @@ def get_extended_info(bank_id):
     ]).where(bank_id == availabilities_table.c.bank_id)
 
     availabilities_data = connection.execute(s)
-
-    return [list(bank_data.fetchone()), list(availabilities_data.fetchall())]
+    bank_data = bank_data.fetchone()
+    availabilities_data = availabilities_data.fetchall()
+    current_hour = int(datetime.datetime.now().strftime("%H"))
+    data_to_return = {
+        "bank_name": bank_data[0],
+        "services": bank_data[1],
+        "address": bank_data[3],
+        'latitude': float(bank_data[4]),
+        'longitude': float(bank_data[5]),
+        #'load_type': bank_data[6],
+        'phone': bank_data[7],
+        "reviews_count": random.randint(20, 500),
+        "reviews_score": random.uniform(1, 5),
+        'ext_work_hours': [],
+        'predicted_time': get_working_time(bank_id),
+        "currentLoad": predict_time(get_times_to_predict(bank_data[0], 1, current_hour))
+    }
+    for day in availabilities_data:
+        data_to_return['ext_work_hours'].append(
+            {
+                'days': day[0],
+                'hours': f'{day[1].strftime("%H:%M")}-{day[2].strftime("%H:%M")}',
+                "from": f'{day[1].strftime("%H:%M")}',
+                "to": f'{day[2].strftime("%H:%M")}',
+            }
+        )
+    return data_to_return
 
 
 def insert_bank_info(
         bank_name, work_hours, address, services, latitude,
         longitude, load_type, rko, network, office_type,
-        sale_point_format, suo_availability, has_ramp
+        sale_point_format, suo_availability, has_ramp, phone
 ):
     bank = banks_table.insert().values(
         bank_name=bank_name,
@@ -115,7 +163,8 @@ def insert_bank_info(
         office_type=office_type,
         sale_point_format=sale_point_format,
         suo_availability=suo_availability,
-        has_ramp=has_ramp
+        has_ramp=has_ramp,
+        phone=phone
     )
     result_proxy = session.execute(bank)
     session.commit()
@@ -247,6 +296,7 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
                 if day[1] <= req_time.time() <= day[2] or day[1] == day[2]:
                     status = "Открыто"
                 break
+        current_hour = int(datetime.datetime.now().strftime("%H"))
         temp = {
             "bankId": bank[0],
             "salesPointName": bank[1],
@@ -269,6 +319,7 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             "myBranch": False,
             "loadType": get_working_time(bank[0]),
             "services": bank[5],
+            "currentLoad": predict_time(get_times_to_predict(bank[0], 1, current_hour))
         }
         for day in bank[-1]:
             work_day = {
@@ -387,44 +438,13 @@ def delete_history(bank_id):
 
 
 def get_working_time(bank_id, weeks=1):
-    current_date = datetime.datetime.now()
-    last_date = current_date - datetime.timedelta(days=7 * weeks)
-    current_date = current_date.date()
-    last_date = last_date.date()
-    s = select([
-        average_load_table.c.date,
-        average_load_table.c.day_of_week,
-        average_load_table.c.time_from,
-        average_load_table.c.time_to,
-        average_load_table.c.average_load,
-    ]).where(and_(
-        average_load_table.c.bank_id == bank_id,
-        average_load_table.c.date >= last_date,
-        average_load_table.c.date < current_date,
-        or_(
-            average_load_table.c.time_from == datetime.time(10, 0),
-            average_load_table.c.time_from == datetime.time(13, 0),
-            average_load_table.c.time_from == datetime.time(16, 0),
-        )
-    ))
-    time_data = connection.execute(s).fetchall()
-    time_10 = []
-    time_13 = []
-    time_16 = []
-    for elem in time_data:
-        if elem[2] == datetime.time(10, 0):
-            time_10.append(elem[4])
-        elif elem[2] == datetime.time(13, 0):
-            time_13.append(elem[4])
-        elif elem[2] == datetime.time(16, 0):
-            time_16.append(elem[4])
     return {
-        "10": predict_time(time_10),
-        "13": predict_time(time_13),
-        "16": predict_time(time_16)
+        "10": predict_time(get_times_to_predict(bank_id, weeks, 10)),
+        "13": predict_time(get_times_to_predict(bank_id, weeks, 13)),
+        "16": predict_time(get_times_to_predict(bank_id, weeks, 15))
     }
 
 
 if __name__ == '__main__':
-    bank_info = get_banks_in_radius(45.0428, 41.9734, None, None, "1")
+    bank_info = get_banks_in_radius(55.7522200, 37.6155600, None, None, "100")
     pprint(bank_info)

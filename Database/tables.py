@@ -36,7 +36,7 @@ banks_table = Table('banks_table', metadata,
                     Column('latitude', DECIMAL(6, 4)),
                     Column('longitude', DECIMAL(7, 4)),
                     Column('load_type', VARCHAR(15)),
-                    Column('phone', VARCHAR(20)),
+                    Column('phone', VARCHAR(250)),
                     )
 atm_table = Table('atm_table', metadata,
                   Column('id', INTEGER(), primary_key=True,
