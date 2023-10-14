@@ -41,18 +41,20 @@ def get_extended_info():
     if not args or 'id' not in args or "type" not in args:
         abort(400)
     branch_type = args.get("type")
+    query_result = None
     if branch_type == "bank":
         bank_id = int(args.get('id'))
         query_result = database_requests.get_extended_info(bank_id)
-    else:
+    elif branch_type == "atm":
         atm_id = int(args.get('id'))
-        query_result = database_requests.get_extended_info(atm_id)
-        if query_result:
-            response_to_send = app.response_class(
-                response=json.dumps(query_result),
-                status=200,
-                mimetype='application/json'
-            )
+        query_result = database_requests.get_atm_extended_info(atm_id)
+
+    if query_result:
+        response_to_send = app.response_class(
+            response=json.dumps(query_result),
+            status=200,
+            mimetype='application/json'
+        )
         return response_to_send
     else:
         abort(400)

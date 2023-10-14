@@ -95,6 +95,44 @@ def haversine(lat1, lng1, lat2, lng2):
     return distance
 
 
+def get_atm_extended_info(atm_id):
+    s = select([
+        atm_table.c.name,
+        atm_table.c.work_hours,
+        atm_table.c.address,
+        atm_table.c.has_ramp,
+        atm_table.c.latitude,
+        atm_table.c.longitude,
+    ]).select_from(atm_table).where(atm_table.c.id == atm_id)
+    atm_data = connection.execute(s)
+    s = select([
+        atm_availabilities_table.c.day_of_week,
+        atm_availabilities_table.c.time_from,
+        atm_availabilities_table.c.time_to,
+    ]).where(atm_id == atm_availabilities_table.c.bank_id)
+    availabilities_data = connection.execute(s)
+
+    atm_data = atm_data.fetchone()
+    availabilities_data = availabilities_data.fetchall()
+
+    data_to_return = {
+        "bank_name": atm_data[0],
+        "address": atm_data[2],
+        "has_ramp": atm_data[3],
+        'ext_work_hours': []
+    }
+    for day in availabilities_data:
+        data_to_return['ext_work_hours'].append(
+            {
+                'days': day[0],
+                'hours': f'{day[1].strftime("%H:%M")}-{day[2].strftime("%H:%M")}',
+                "from": f'{day[1].strftime("%H:%M")}',
+                "to": f'{day[2].strftime("%H:%M")}',
+            }
+        )
+    return data_to_return
+
+
 def get_extended_info(bank_id):
     s = select([
         banks_table.c.bank_name,
@@ -125,7 +163,7 @@ def get_extended_info(bank_id):
         "address": bank_data[3],
         'latitude': float(bank_data[4]),
         'longitude': float(bank_data[5]),
-        #'load_type': bank_data[6],
+        # 'load_type': bank_data[6],
         'phone': bank_data[7],
         "reviews_count": random.randint(20, 500),
         "reviews_score": random.uniform(1, 5),
