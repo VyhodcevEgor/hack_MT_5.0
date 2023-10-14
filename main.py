@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request, abort, json
 from Database import database_requests
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 
 def error_404(description):

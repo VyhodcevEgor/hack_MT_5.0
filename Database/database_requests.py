@@ -286,10 +286,10 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     s = select([
         atm_table.c.id,
         atm_table.c.name,
-        banks_table.c.latitude,
-        banks_table.c.longitude,
-        banks_table.c.address,
-        banks_table.c.has_ramp
+        atm_table.c.latitude,
+        atm_table.c.longitude,
+        atm_table.c.address,
+        atm_table.c.has_ramp
     ])
 
     result = connection.execute(s)
