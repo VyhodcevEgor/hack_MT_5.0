@@ -1,4 +1,15 @@
-from Database.settings import user, password, host, db_name, yandex_api_key
+import sys
+import os
+sys.path.append(os.path.dirname(os.getcwd()))
+
+import datetime
+from random import sample, randint, choice
+
+import requests
+from sqlalchemy import (
+    create_engine,
+)
+
 from Database.database_requests import (
     insert_bank_info,
     insert_availabilities,
@@ -6,26 +17,21 @@ from Database.database_requests import (
     insert_average_load,
     insert_atm_info
 )
-from random import sample, randint, choice
-from pprint import pprint
-from sqlalchemy import (
-    create_engine,
-    MetaData,
-    Table,
-)
-import requests
-import datetime
+from Database.settings import user, password, host, db_name, yandex_api_key
 
 engine = create_engine(
     f"mysql+pymysql://{user}:{password}@{host}/{db_name}?charset=utf8mb4"
 )
 
 
+# Функция для сложения времени
 def add_times(time1, time2):
     total_minutes = (time1.hour * 60 + time1.minute) + (time2.hour * 60 + time2.minute)
     result_time = datetime.time(total_minutes // 60, total_minutes % 60)
     return result_time
 
+
+# Функция для определения загрузки по времени
 
 def load_by_time(hour):
     load = {
@@ -57,6 +63,8 @@ def load_by_time(hour):
     return randint(load[hour][0], load[hour][1])
 
 
+# Функция для расчета широты и долготы по радиусу
+
 def calculate_spn(radius_meters):
     meters_per_degree_lat = 111320.0
     lat_span = radius_meters / meters_per_degree_lat
@@ -64,35 +72,39 @@ def calculate_spn(radius_meters):
     return lat_span, lon_span
 
 
+# Функция для поиска на Яндекс.Картах
+
 def map_search_yandex(lat, lng, query, radius, skip=0, types=0):
     """
-    :param lat:
-    :param lng:
-    :param query:
-    :param radius:
+    :param lat: Широта
+    :param lng: Долгота
+    :param query: Запрос для поиска
+    :param radius: Радиус поиска в метрах
     :param types: 0 - ищем только банки, 1 ищем все
-    :return:
+    :return: Результаты поиска
     """
     spn = calculate_spn(radius)
     url = f"https://search-maps.yandex.ru/v1/"
 
     params = {
-        "apikey": yandex_api_key,
-        "text": query,
-        "lang": "ru_RU",
-        "ll": f"{lng},{lat}",
-        "results": "50",
-        "skip": f"{skip}"
+        "apikey": yandex_api_key,  # API-ключ Яндекс.Карт
+        "text": query,  # Текст запроса
+        "lang": "ru_RU",  # Язык результатов поиска
+        "ll": f"{lng},{lat}",  # Координаты центра поиска
+        "results": "50",  # Количество результатов
+        "skip": f"{skip}"  # Количество пропущенных результатов
     }
 
     headers = {
-        "Accept": "application/json",
+        "Accept": "application/json",  # Формат принимаемых данных
     }
 
     response = requests.request("GET", url, params=params)
     data = response.json()
     return data
 
+
+# Функция для заполнения доступности
 
 def fill_availabilities(availabilities, inserted_bank_id, entity_type):
     week = {
@@ -168,12 +180,18 @@ def fill_availabilities(availabilities, inserted_bank_id, entity_type):
 
 
 if __name__ == '__main__':
+    """
+    В данном коде происходит поиск банков и банкоматов в заданных координатах. 
+    Затем происходит заполнение информации о них, а также их графиков работы и доступности. 
+    Далее происходит заполнение информации о средней загрузке в заданный период времени.
+    Используемые города:
     # Москва
     # lat = 55.7522200
     # lng = 37.6155600
     # Ставрополь
     # lat = 45.0428
     # lng = 41.9734
+    """
     coordinates = [(45.0428, 41.9734), (55.75222, 37.61556)]
     services = [
         "Открытие счета", "Получение кредита", "Обмен валюты",
@@ -269,4 +287,3 @@ if __name__ == '__main__':
                         bank_id
                     )
                 current_date += datetime.timedelta(days=1)
-    #

@@ -1,34 +1,30 @@
-import math
-import datetime
-import random
+import sys
+import os
+sys.path.append(os.path.dirname(os.getcwd()))
 
-from Database.settings import user, password, host, db_name
+import datetime
+import math
+import random
+from pprint import pprint
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
 from sqlalchemy import (
     create_engine,
-    delete,
     select,
-    and_,
-    asc,
-    desc,
-    func,
-    update,
-    insert,
 )
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import and_, or_
+
+from Database.settings import user, password, host, db_name
 from Database.tables import (
     banks_table,
     availabilities_table,
-    history_table,
     average_load_table,
     atm_table,
     atm_availabilities_table,
 )
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestRegressor
-from pprint import pprint
 
 engine = create_engine(
     f"mysql+pymysql://{user}:{password}@{host}/{db_name}?charset=utf8mb4"
@@ -41,10 +37,12 @@ model = RandomForestRegressor(n_estimators=100, random_state=0)
 
 
 def get_times_to_predict(bank_id, weeks, time_for_prediction):
-    current_date = datetime.datetime.now()
-    last_date = current_date - datetime.timedelta(days=7 * weeks)
-    current_date = current_date.date()
+    current_date = datetime.datetime.now()  # Текущая дата и время
+    last_date = current_date - datetime.timedelta(days=7 * weeks)  # Дата, отстоящая на weeks недель
+    current_date = current_date.date()  # Текущая дата
     last_date = last_date.date()
+
+    # Запрос к базе данных для получения временных данных для прогнозирования
     s = select([
         average_load_table.c.date,
         average_load_table.c.day_of_week,
@@ -60,6 +58,8 @@ def get_times_to_predict(bank_id, weeks, time_for_prediction):
         )
     ))
     query_data = connection.execute(s).fetchall()
+
+    # Возвращаем список средних загрузок для каждого элемента в query_data
     return [int(elem[4]) for elem in query_data]
 
 
@@ -69,29 +69,30 @@ def predict_time(time):
     date_range = [current_date - datetime.timedelta(days=i) for i in range(len(time))]
     date_range.reverse()
 
+    # Создаем DataFrame с данными о дате и посещаемости
     data_10 = pd.DataFrame({"Дата": date_range, "Посещаемость": time})
 
-    X = np.arange(len(data_10)).reshape(-1, 1)
+    x = np.arange(len(data_10)).reshape(-1, 1)
     y = data_10['Посещаемость']
 
-    model.fit(X, y)
+    model.fit(x, y)  # Обучаем модель на данных
     next_day = len(data_10)
 
-    predicted_value = model.predict([[next_day]])[0]
+    predicted_value = model.predict([[next_day]])[0]  # Прогнозируем значение для следующего дня
     return predicted_value
 
 
 def haversine(lat1, lng1, lat2, lng2):
-    lat1 = math.radians(lat1)
-    lng1 = math.radians(lng1)
-    lat2 = math.radians(lat2)
-    lng2 = math.radians(lng2)
-    earth_radius = 6371.0
-    d_lng = lng2 - lng1
-    d_lat = lat2 - lat1
-    a = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lng / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    distance = earth_radius * c
+    lat1 = math.radians(lat1)  # Преобразуем широту 1 в радианы
+    lng1 = math.radians(lng1)  # Преобразуем долготу 1 в радианы
+    lat2 = math.radians(lat2)  # Преобразуем широту 2 в радианы
+    lng2 = math.radians(lng2)  # Преобразуем долготу 2 в радианы
+    earth_radius = 6371.0  # Радиус Земли в километрах
+    d_lng = lng2 - lng1  # Разница долгот
+    d_lat = lat2 - lat1  # Разница широт
+    a = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lng / 2) ** 2  # Формула haversine
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))  # Вычисление угла между точками
+    distance = earth_radius * c  # Вычисление расстояния между точками
     return distance
 
 
@@ -269,6 +270,7 @@ def insert_availabilities(day_of_week, time_from, time_to, bank_id, entity_type)
 
 
 def get_banks_in_radius(lat, lng, service, loading_type, distance):
+    # Если расстояние не указано, устанавливаем значение по умолчанию равным 1
     if not distance:
         distance = 1
     else:
@@ -282,6 +284,7 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     current_day_of_week = current_datetime.weekday()
     current_day_of_week = days_of_week_russian[current_day_of_week]
 
+    # Запрос для выборки данных о банках
     s = select([
         banks_table.c.id,
         banks_table.c.bank_name,
@@ -301,8 +304,10 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     result = connection.execute(s)
     banks_data = result.fetchall()
 
+    # Список для хранения выбранных банкоматов
     selected_banks = []
 
+    # Проверка расстояния между координатами и выборка банков в заданном радиусе
     for bank in banks_data:
 
         dist = haversine(lat, lng, float(bank[3]), float(bank[4]))
@@ -327,6 +332,8 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
         selected_banks = [bank for bank in selected_banks if service in bank[5]]
     data_to_return = []
     req_time = datetime.datetime.now()
+
+    # Обработка данных о банках
     for bank in selected_banks:
         status = "Закрыто"
         for day in bank[-1]:
@@ -370,8 +377,10 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             temp['openHoursIndividual'].append(work_day)
         data_to_return.append(temp)
 
+    # Формирование результирующего словаря с данными о банках и банкоматах
     result_to_return = {"banks": data_to_return}
 
+    # Запрос для выборки данных о банкоматах
     s = select([
         atm_table.c.id,
         atm_table.c.name,
@@ -386,6 +395,7 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
 
     selected_atms = []
 
+    # Проверка расстояния между координатами и выборка банкоматов в заданном радиусе
     for atm in atm_data:
 
         dist = haversine(lat, lng, float(atm[2]), float(atm[3]))
@@ -405,6 +415,8 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
             selected_atms.append(temp)
 
     data_to_return = []
+
+    # Обработка данных о банкоматах
     for atm in selected_atms:
         status = "Закрыто"
         for day in atm[-1]:
@@ -435,15 +447,6 @@ def get_banks_in_radius(lat, lng, service, loading_type, distance):
     return result_to_return
 
 
-def insert_history(bank_id):
-    history = history_table.insert().values(
-        bank_id=bank_id,
-        visit_time=datetime.datetime.now()
-    )
-    session.execute(history)
-    session.commit()
-
-
 def insert_average_load(date, day_of_week, time_from, time_to, average_load, bank_id):
     load = average_load_table.insert().values(
         date=date,
@@ -454,24 +457,6 @@ def insert_average_load(date, day_of_week, time_from, time_to, average_load, ban
         bank_id=bank_id,
     )
     session.execute(load)
-    session.commit()
-
-
-def get_history():
-    s = select([
-        history_table.c.id,
-        history_table.c.visit_time,
-        history_table.c.bank_id,
-    ]).select_from(history_table).order_by(history_table.c.visit_time.desc())
-
-    result = connection.execute(s)
-
-    return result.fetchall()
-
-
-def delete_history(bank_id):
-    history = history_table.delete().where(history_table.c.bank_id == bank_id)
-    session.execute(history)
     session.commit()
 
 
